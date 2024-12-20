@@ -121,9 +121,33 @@ class Game:
     def create_paths(self):
         """Crée les chemins pour chaque niveau"""
         paths = {
-            1: [(100, 300), (300, 300), (300, 100), (500, 100), (500, 300), (700, 300)],
-            2: [(100, 100), (700, 100), (700, 500), (100, 500), (100, 300), (400, 300)],
-            3: [(100, 100), (700, 500), (100, 500), (700, 100), (400, 300)]
+            1: [
+                (100, 100),  # Départ
+                (300, 100),
+                (300, 300),
+                (500, 300),
+                (500, 500),  # Arrivée
+            ],
+            2: [
+                (100, 100),  # Départ
+                (300, 100),
+                (300, 200),
+                (200, 200),
+                (200, 400),
+                (400, 400),
+                (400, 500),  # Arrivée
+            ],
+            3: [
+                (100, 100),  # Départ
+                (300, 100),
+                (300, 200),
+                (200, 200),
+                (200, 300),
+                (400, 300),
+                (400, 400),
+                (300, 400),
+                (300, 500),  # Arrivée
+            ]
         }
         return paths
 
@@ -405,12 +429,12 @@ class Game:
     def draw_setup_screen(self):
         """Dessine l'écran de configuration"""
         # Titre
-        font = pygame.font.Font(None, 48)
+        font = pygame.font.Font(None, 46)
         title = font.render("Configuration du Participant", True, BLACK)
         screen.blit(title, (WINDOW_WIDTH // 2 - title.get_width() // 2, 30))
 
         # Labels
-        font = pygame.font.Font(None, 36)
+        font = pygame.font.Font(None, 32)
         labels = {
             'id': 'Identifiant:',
             'age': 'Âge:',
