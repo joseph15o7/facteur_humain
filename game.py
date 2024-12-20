@@ -108,7 +108,7 @@ class Game:
         self.reset_game()
         self.setup_ui()
         self.images = {
-            "image1": pygame.transform.scale(pygame.image.load("./images/jumpscare.png"), (50, 50)),
+            "image1": pygame.transform.scale(pygame.image.load("./images/jumpscare.png"), (70, 70)),
             "image2": pygame.transform.scale(pygame.image.load("./images/cute.jpg"), (50, 50)),
             "image3": pygame.transform.scale(pygame.image.load("./images/joke.png"), (50, 50)),
             "image4": pygame.transform.scale(pygame.image.load("./images/kidding.png"), (50, 50)),
@@ -138,18 +138,47 @@ class Game:
                 (400, 500),  # Arrivée
             ],
             3: [
-                (100, 100),  # Départ
-                (300, 100),
-                (300, 200),
+                (50, 50),  # Départ
+                (150, 50),
+                (150, 100),
+                (100, 100),
+                (100, 150),
+                (200, 150),
                 (200, 200),
-                (200, 300),
-                (400, 300),
-                (400, 400),
+                (150, 200),
+                (150, 250),
+                (250, 250),
+                (250, 300),
+                (100, 300),
+                (100, 400),
                 (300, 400),
-                (300, 500),  # Arrivée
+                (300, 350),
+                (200, 350),
+                (200, 500),  # Arrivée
             ]
         }
-        return paths
+        centered_paths = {level: self.center_path(path) for level, path in paths.items()}
+
+        return centered_paths
+
+    def center_path(self, path):
+        """Centre un chemin dans la fenêtre"""
+        # Calcul du centre actuel du chemin
+        x_coords = [point[0] for point in path]
+        y_coords = [point[1] for point in path]
+        path_center_x = sum(x_coords) / len(x_coords)
+        path_center_y = sum(y_coords) / len(y_coords)
+
+        # Calcul du centre de la fenêtre
+        window_center_x = WINDOW_WIDTH / 2
+        window_center_y = WINDOW_HEIGHT / 2
+
+        # Translation nécessaire
+        x_translation = window_center_x - path_center_x
+        y_translation = window_center_y - path_center_y
+
+        # Appliquer la translation à chaque point
+        return [(x + x_translation, y + y_translation) for x, y in path]
 
     def create_image_positions(self):
         """Crée les emplacements fixes des images et leur association pour chaque niveau."""
@@ -161,12 +190,32 @@ class Game:
 
     def manage_images(self, current_time):
         """Gère l'affichage d'une seule image à la fois avec rotation toutes les 5 secondes."""
-        if current_time - self.image_last_toggle > 5:  # Intervalle de 5 secondes
-            self.image_visible = not self.image_visible
-            if self.image_visible:  # Si on doit afficher une image
-                self.current_image_index = (self.current_image_index + 1) % len(
-                    self.image_positions[self.current_level])
-            self.image_last_toggle = current_time
+        if self.participant_data['condition'] == 'sync':
+            heart_rate = self.participant_data['heart_rate_before']  # Fixed heart rate
+            if current_time - self.image_last_toggle > 60 / heart_rate:  # Interval based on BPM
+                self.image_visible = not self.image_visible
+                if self.image_visible:
+                    self.current_image_index = (self.current_image_index + 1) % len(
+                        self.image_positions[self.current_level])
+                self.image_last_toggle = current_time
+        if self.participant_data['condition'] == 'async':
+            fixed_bpm = 100  # Fixed value for asynchronous condition
+            if current_time - self.image_last_toggle > 60 / fixed_bpm:  # Interval for 100 BPM
+                self.image_visible = not self.image_visible
+                if self.image_visible:
+                    self.current_image_index = (self.current_image_index + 1) % len(
+                        self.image_positions[self.current_level])
+                self.image_last_toggle = current_time
+        if self.participant_data['condition'] == 'random':
+            heart_rate = self.participant_data['heart_rate_before']  # Fixed heart rate
+            total_blinks = int((heart_rate / 60) * self.time_left)  # Number of blinks in the level
+            if len(self.game_data["response_times"]) < total_blinks:
+                if current_time - self.image_last_toggle > random.uniform(0.5, 1.5):  # Random intervals
+                    self.image_visible = not self.image_visible
+                    if self.image_visible:
+                        self.current_image_index = (self.current_image_index + 1) % len(
+                            self.image_positions[self.current_level])
+                    self.image_last_toggle = current_time
 
     def handle_image_click(self, mouse_pos):
         """Gère le clic sur l'image visible."""
@@ -399,8 +448,13 @@ class Game:
 
     def validate_setup(self):
         """Vérifie que toutes les informations nécessaires sont remplies"""
+
+
         print(self.participant_data)
         required_fields = ['id', 'age', 'gender', 'heart_rate_before', 'condition']
+        if self.participant_data['condition'] == 'async' and self.participant_data['heart_rate_before'] == 100:
+            print("La fréquence cardiaque doit être différente de 100 BPM pour cette condition.")
+            return False
         return all(self.participant_data.get(field) for field in required_fields)
 
     def handle_evaluation_input(self, event):
@@ -434,7 +488,7 @@ class Game:
         screen.blit(title, (WINDOW_WIDTH // 2 - title.get_width() // 2, 30))
 
         # Labels
-        font = pygame.font.Font(None, 32)
+        font = pygame.font.Font(None, 30)
         labels = {
             'id': 'Identifiant:',
             'age': 'Âge:',
@@ -480,7 +534,7 @@ class Game:
                          self.active_bonus["position"][1] - 15))
 
         # Informations
-        font = pygame.font.Font(None, 36)
+        font = pygame.font.Font(None, 32)
         info_texts = [
             f"Niveau: {self.current_level}",
             f"Temps: {self.time_left}s",
