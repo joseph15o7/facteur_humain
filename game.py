@@ -8,7 +8,11 @@ from datetime import datetime
 import csv
 import math
 from pathlib import Path
+import numpy as np
 
+pygame.mixer.pre_init(44100, -16, 2, 1024)  # Pré-configuration audio
+pygame.init()
+pygame.mixer.init()
 # Initialisation de Pygame
 pygame.init()
 pygame.mixer.init()
@@ -103,6 +107,63 @@ class InputBox:
         screen.blit(self.txt_surface, (self.rect.x + 5, self.rect.y + 5))
 
 
+class SoundManager:
+    def __init__(self):
+        """
+        Initialise le gestionnaire de son
+        """
+        try:
+            self.sound_manager = SoundManager()
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+            self.bip_sound = self.generate_bip_sound()
+            print("Audio initialisé avec succès")
+        except Exception as e:
+            print(f"Erreur d'initialisation audio : {e}")
+            self.bip_sound = None
+
+    def generate_bip_sound(self, duration=0.2, frequency=800, volume=0.5):
+        """
+        Génère un son de bip compatible multiplateforme
+
+        Retourne:
+        - Un objet pygame.mixer.Sound représentant le bip
+        """
+        sample_rate = 44100
+        n_samples = int(sample_rate * duration)
+
+        t = np.linspace(0, duration, n_samples, False)
+        signal = np.sin(2 * np.pi * frequency * t)
+
+        envelope = np.ones_like(signal)
+        envelope[:100] = np.linspace(0, 1, 100)  # Attaque douce
+        envelope[-100:] = np.linspace(1, 0, 100)  # Déclin doux
+
+        signal *= envelope
+
+        scaled_signal = np.int16(signal * 32767 * volume)
+        stereo_signal = np.column_stack((scaled_signal, scaled_signal))
+
+        try:
+            sound = pygame.sndarray.make_sound(stereo_signal)
+            return sound
+        except Exception as e:
+            print(f"Erreur de génération de son : {e}")
+            return None
+
+    def play_bip(self, volume=0.5):
+        """
+        Joue le son de bip avec gestion des erreurs
+        """
+        try:
+            if self.bip_sound is None:
+                print("Génération de son de secours")
+                self.bip_sound = self.generate_bip_sound()
+
+            self.bip_sound.set_volume(volume)
+            self.bip_sound.play()
+        except Exception as e:
+            print(f"Impossible de jouer le son : {e}")
+
 class Game:
     def __init__(self):
         self.reset_game()
@@ -117,6 +178,46 @@ class Game:
         self.image_visible = False  # Indique si les images doivent être affichées
         self.current_image_index = 0  # Index de l'image actuellement affichée
         self.image_last_toggle = 0
+        self.sound_manager = SoundManager()
+        # Nouvelles variables pour les bips
+        self.bip_start_time = None
+        self.last_bip_time = 0
+        self.bip_duration = 0.2  # Durée d'un bip en secondes
+
+    def manage_bips(self, current_time):
+        """Gère les bips selon les conditions expérimentales"""
+        if self.bip_start_time is not None:
+            if current_time - self.bip_start_time > self.bip_duration:
+                self.bip_start_time = None
+            return
+
+        if self.participant_data['condition'] == 'sync':
+            heart_rate = self.participant_data.get('heart_rate_before', 70)
+            interval = 60.0 / heart_rate
+            if current_time - self.last_bip_time >= interval:
+                self.trigger_bip(current_time)
+
+        elif self.participant_data['condition'] == 'async':
+            fixed_bpm = 100
+            interval = 60.0 / fixed_bpm
+            if current_time - self.last_bip_time >= interval:
+                self.trigger_bip(current_time)
+
+        elif self.participant_data['condition'] == 'random':
+            heart_rate = self.participant_data.get('heart_rate_before', 70)
+            average_interval = 60.0 / heart_rate
+            # Vérifier qu'au moins la moitié de l'intervalle moyen s'est écoulé
+            if current_time - self.last_bip_time >= (average_interval / 2):
+                if random.random() < 0.02:  # 2% de chance par frame
+                    self.trigger_bip(current_time)
+
+    def trigger_bip(self, current_time):
+        """Déclenche un bip"""
+        if self.bip_start_time is None:
+            self.sound_manager.play_bip()
+            self.bip_start_time = current_time
+            self.last_bip_time = current_time
+            self.game_data['bip_times'].append(current_time)
 
     def create_paths(self):
         """Crée les chemins pour chaque niveau"""
@@ -401,13 +502,25 @@ class Game:
         self.start_time = None
         self.heart_rate = 75
         self.current_evaluation = {}
+        self.bip_start_time = None
 
+        # Initialisez game_data AVANT d'ajouter des clés
         self.game_data = {
             "response_times": [],
             "missed_bonus": 0,
             "command_errors": 0,
-            "level_evaluations": []
+            "level_evaluations": [],
+            "bip_times": []
         }
+        # Réinitialisation explicite des variables de bips
+
+        self.image_visible = False
+        self.image_last_toggle = 0
+
+        # Réinitialisation des données de bips
+        self.game_data['bip_times'] = []
+        self.game_data['missed_bips'] = 0
+
 
     def handle_setup_input(self, event):
         """Gère les entrées dans l'écran de configuration"""
@@ -624,6 +737,7 @@ class Game:
                 "heart_rate_before": self.participant_data["heart_rate_before"],
                 "heart_rate_after": self.participant_data["heart_rate_after"]
             },
+
             "performance_data": {
                 "response_times": self.game_data["response_times"],
                 "average_response_time": self.get_average_response_time(),
@@ -631,7 +745,13 @@ class Game:
                 "command_errors": self.game_data["command_errors"]
             },
             "evaluations": self.game_data["level_evaluations"],
-            "timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            "timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+            "bip_data": {
+                "condition": self.participant_data['condition'],
+                "heart_rate": self.participant_data['heart_rate_before'],
+                "total_bips": len(self.game_data['bip_times']),
+                "missed_bips": self.game_data['missed_bips']
+            },
         }
 
         # Sauvegarde au format JSON
@@ -728,6 +848,7 @@ class Game:
     def update_game(self, current_time):
         """Met à jour l'état du jeu"""
         self.manage_images(current_time)
+        self.manage_bips(current_time)
 
         if self.start_time is None:
             self.start_time = current_time
