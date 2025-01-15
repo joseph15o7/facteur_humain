@@ -1,0 +1,83 @@
+{
+  "participant_info": {
+    "id": "P044",
+    "age": 21,
+    "gender": "homme",
+    "condition": "random",
+    "heart_rate_before": 73,
+    "heart_rate_after": 88
+  },
+  "performance_data": {
+    "response_times": [
+      0.267,
+      0.214,
+      0.22,
+      0.229,
+      0.275,
+      0.318,
+      0.251,
+      0.203,
+      0.265,
+      0.215,
+      0.2,
+      0.201,
+      0.256,
+      0.188,
+      0.226,
+      0.21,
+      0.255,
+      0.248,
+      0.244,
+      0.324,
+      0.256,
+      0.266,
+      0.225,
+      0.301,
+      0.199,
+      0.244,
+      0.267,
+      0.442,
+      0.414,
+      0.37,
+      0.351,
+      0.413,
+      0.425,
+      0.388,
+      0.466,
+      0.46,
+      0.428,
+      0.384,
+      0.388,
+      0.357,
+      0.343,
+      0.485
+    ],
+    "missed_bonus": 2,
+    "command_errors": 1,
+    "average_response_time": 0.302
+  },
+  "evaluations": [
+    {
+      "level": 1,
+      "performance": 5,
+      "stress": 1,
+      "certitude": 3,
+      "avg_response_time": 0.238
+    },
+    {
+      "level": 2,
+      "performance": 3,
+      "stress": 1,
+      "certitude": 3,
+      "avg_response_time": 0.247
+    },
+    {
+      "level": 3,
+      "performance": 3,
+      "stress": 3,
+      "certitude": 2,
+      "avg_response_time": 0.408
+    }
+  ],
+  "timestamp": "2025-01-15_08-58-15"
+}
